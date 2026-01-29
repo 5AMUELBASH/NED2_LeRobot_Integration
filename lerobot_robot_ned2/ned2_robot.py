@@ -41,7 +41,6 @@ class Ned2FollowerRobot(Robot):
     # ---------- Step 3: connect/disconnect ----------
     def connect(self):
         self.robot = NiryoRobot(self.config.ip)
-        self.robot.connect()
         self.calibrate()
         self.configure()
         time.sleep(0.2)

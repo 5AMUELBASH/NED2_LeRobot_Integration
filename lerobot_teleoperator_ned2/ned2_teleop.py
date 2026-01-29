@@ -1,7 +1,9 @@
+import time
 from typing import Any
-from pyniryo import NiryoRobot
 
+from pyniryo import NiryoRobot
 from lerobot.teleoperators.teleoperator import Teleoperator
+
 from lerobot_teleoperator_ned2.ned2_teleop_config import Ned2LeaderConfig
 
 
@@ -13,25 +15,53 @@ class Ned2LeaderTeleop(Teleoperator):
         super().__init__(config)
         self.config = config
         self.robot: NiryoRobot | None = None
-        self._gripper_open = int(config.default_gripper_open)
+        self._calibrated = False
+        self._gripper_open = int(getattr(config, "default_gripper_open", 1))
 
+    # -------- required by Teleoperator ABC --------
+    @property
+    def action_features(self) -> dict:
+        # Must match follower action space
+        feats = {f"joint_{i}.pos": float for i in range(1, 7)}
+        feats["gripper.open"] = int
+        return feats
+
+    @property
+    def feedback_features(self) -> dict:
+        # No feedback channel for now
+        return {}
+
+    def calibrate(self) -> None:
+        if self.robot:
+            self.robot.calibrate_auto()
+            self._calibrated = True
+
+    def configure(self) -> None:
+        # Put leader into backdrivable mode
+        if self.robot:
+            self.robot.set_learning_mode(bool(getattr(self.config, "learning_mode", True)))
+
+    @property
+    def is_calibrated(self) -> bool:
+        return self._calibrated
+
+    # -------- connection management --------
     @property
     def is_connected(self) -> bool:
         return self.robot is not None
 
     def connect(self) -> None:
         self.robot = NiryoRobot(self.config.ip)
-        self.robot.connect()
-        self.robot.calibrate_auto()
-
-        # leader should be backdrivable
-        self.robot.set_learning_mode(bool(self.config.learning_mode))
+        self.calibrate()
+        self.configure()
+        time.sleep(0.2)
 
     def disconnect(self) -> None:
         if self.robot:
             self.robot.close_connection()
             self.robot = None
 
+    # -------- main I/O --------
     def get_action(self) -> dict[str, Any]:
         j = self.robot.get_joints()
         action = {f"joint_{i}.pos": float(j[i - 1]) for i in range(1, 7)}
@@ -39,5 +69,5 @@ class Ned2LeaderTeleop(Teleoperator):
         return action
 
     def send_feedback(self, feedback: dict[str, Any]) -> None:
-        # optional
+        # No-op for now
         return
