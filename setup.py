@@ -1,7 +1,11 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="lerobot_robot_ned2",
-    version="0.0.1",
+    name="lerobot_ned2_plugins",
+    version="0.0.2",
     packages=find_packages(),
+    install_requires=[
+        "lerobot",
+        "pyniryo==1.2.3",
+    ],
 )

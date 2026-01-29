@@ -1,0 +1,2 @@
+lerobot_robot_ned2
+lerobot_teleoperator_ned2

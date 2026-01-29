@@ -1,0 +1,6 @@
+Metadata-Version: 2.4
+Name: lerobot_ned2_plugins
+Version: 0.0.2
+Requires-Dist: lerobot
+Requires-Dist: pyniryo==1.2.3
+Dynamic: requires-dist
