@@ -4,7 +4,7 @@ from lerobot.teleoperators.config import TeleoperatorConfig
 @TeleoperatorConfig.register_subclass("ned2_leader")
 @dataclass
 class Ned2LeaderConfig(TeleoperatorConfig):
-    ip: str = "192.168.8.144"
+    ip: str = "192.168.8.145"
 
     # leader backdrive mode
     learning_mode: bool = True
