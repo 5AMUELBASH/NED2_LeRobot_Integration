@@ -40,7 +40,6 @@ class NED2ROS2FollowerConfig(RobotConfig):
     open_gripper_service: str = "niryo_robot/tools/open_gripper"
     close_gripper_service: str = "niryo_robot/tools/close_gripper"
     tool_motor_topic: str = "niryo_robot_hardware/tools/motor"
-
     # Gripper behavior
     gripper_key: str = "gripper"
     gripper_open_value: float = 1.0
