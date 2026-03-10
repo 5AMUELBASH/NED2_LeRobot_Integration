@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from typing import TypeAlias
 
 from lerobot.robots.config import RobotConfig
+from lerobot.cameras.opencv import OpenCVCameraConfig
+from lerobot.cameras import CameraConfig
+from lerobot.cameras.configs import Cv2Rotation
 
 
 @RobotConfig.register_subclass("ned2_ros2_follower")
@@ -32,6 +35,25 @@ class NED2ROS2FollowerConfig(RobotConfig):
         ]
     )
 
+    cameras : dict[str, CameraConfig] = field(
+        default_factory=lambda: {
+            "front_cam": OpenCVCameraConfig(
+                index_or_path=0,
+                fps=15,
+                width=640,
+                height=480,
+            ),
+
+            "hand_cam": OpenCVCameraConfig(
+                index_or_path=2,
+                fps=15,
+                width=640,
+                height=480,
+                rotation=Cv2Rotation.ROTATE_180,
+            ),
+        }
+    )
+
     # Trajectory timing (seconds)
     point_time: float = 0.3
 
@@ -40,11 +62,11 @@ class NED2ROS2FollowerConfig(RobotConfig):
     open_gripper_service: str = "niryo_robot/tools/open_gripper"
     close_gripper_service: str = "niryo_robot/tools/close_gripper"
     tool_motor_topic: str = "niryo_robot_hardware/tools/motor"
+    
     # Gripper behavior
     gripper_key: str = "gripper"
     gripper_open_value: float = 1.0
     gripper_close_value: float = 0.0
-    gripper_toggle_threshold: float = 0.5
 
     tool_id: int = 13
     gripper_open_pos: int = 2900
@@ -54,7 +76,6 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_max_torque: int = 150
 
     update_tool_on_connect: bool = True
-    update_tool_each_toggle: bool = False
 
     # Startup behavior
     startup_timeout_s: float = 10.0

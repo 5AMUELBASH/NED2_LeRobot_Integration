@@ -1,7 +1,7 @@
 import cv2
 import time
 
-CAMERA_ID = 2 # change this
+CAMERA_ID = 0 # change this
 
 def main():
     # Force Linux V4L2 backend (often fixes “window but no frames”)

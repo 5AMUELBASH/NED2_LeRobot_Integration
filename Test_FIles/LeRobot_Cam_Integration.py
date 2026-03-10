@@ -9,7 +9,7 @@ config = OpenCVCameraConfig(
     width=640,
     height=480,
     color_mode=ColorMode.RGB,
-    rotation=Cv2Rotation.NO_ROTATION
+    rotation=Cv2Rotation.ROTATE_180
 )
 
 # Instantiate and connect an `OpenCVCamera`, performing a warm-up read (default).

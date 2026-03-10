@@ -16,10 +16,13 @@ from control_msgs.action import FollowJointTrajectory
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
+
+
 from niryo_ned_ros2_interfaces.msg import Tool
 from niryo_ned_ros2_interfaces.srv import ToolCommand, Trigger
 
 from lerobot.robots.robot import Robot
+from lerobot.cameras import make_cameras_from_configs
 
 from .config_ned2_ros2_follower import NED2ROS2FollowerConfig
 
@@ -52,7 +55,7 @@ class NED2ROS2Follower(Robot):
         super().__init__(config)
         self.config = config
 
-        self.cameras = {}
+        self.cameras = make_cameras_from_configs(self.config.cameras)
 
         self._node = None
         self._executor = None
@@ -73,6 +76,14 @@ class NED2ROS2Follower(Robot):
         self._warned_missing = set()
 
     @property
+    def _camera_ft(self) -> dict[str, tuple]:
+        cams = self.cameras
+        return {
+            cam_name: (int(cam_cfg.height), int(cam_cfg.width), 3)
+            for cam_name, cam_cfg in cams.items()
+        }
+
+    @property
     def observation_features(self) -> dict[str, type]:
         features = {}
         if self.config.joint_names:
@@ -80,6 +91,8 @@ class NED2ROS2Follower(Robot):
                 features[f"{name}.pos"] = float
         if self.config.gripper_key:
             features[self.config.gripper_key] = float
+
+        features.update(self._camera_ft)
         return features
 
     @property
@@ -91,7 +104,7 @@ class NED2ROS2Follower(Robot):
         if self.config.gripper_key:
             features[self.config.gripper_key] = float
         return features
-
+    
     @property
     def is_connected(self) -> bool:
         return self._node is not None
@@ -137,7 +150,12 @@ class NED2ROS2Follower(Robot):
         if self.config.update_tool_on_connect:
             self._update_tool()
 
+        for cam in self.cameras.values():
+            cam.connect()
+
         logger.info("%s connected.", self)
+
+
 
     @property
     def is_calibrated(self) -> bool:
@@ -296,7 +314,7 @@ class NED2ROS2Follower(Robot):
             logger.error("send_goal_async failed: %s", exc)
 
     def _handle_gripper(self, value: float) -> None:
-        want_open = value >= self.config.gripper_toggle_threshold
+        want_open = bool(int(value))
         desired_closed = not want_open
 
         if self._gripper_closed is None:
@@ -305,12 +323,6 @@ class NED2ROS2Follower(Robot):
             return
 
         self._gripper_closed = desired_closed
-
-        if self.config.update_tool_each_toggle:
-            try:
-                self._update_tool_client.call_async(Trigger.Request())
-            except Exception:
-                pass
 
         req = ToolCommand.Request()
         req.id = int(self.config.tool_id)
