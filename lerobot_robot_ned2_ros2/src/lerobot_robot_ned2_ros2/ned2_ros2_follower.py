@@ -72,6 +72,7 @@ class NED2ROS2Follower(Robot):
         self._lock = threading.Lock()
         self._gripper_closed = None
         self._warned_missing = set()
+        self._warned_camera_read = set()
 
         # Non-blocking gripper worker state.
         self._pending_gripper_open: bool | None = None
@@ -80,10 +81,9 @@ class NED2ROS2Follower(Robot):
 
     @property
     def _camera_ft(self) -> dict[str, tuple]:
-        cams = self.cameras
         return {
             cam_name: (int(cam_cfg.height), int(cam_cfg.width), 3)
-            for cam_name, cam_cfg in cams.items()
+            for cam_name, cam_cfg in self.cameras.items()
         }
 
     @property
@@ -245,6 +245,13 @@ class NED2ROS2Follower(Robot):
         if self.config.gripper_key and self._tool_position is not None:
             obs[self.config.gripper_key] = float(self._tool_position)
 
+        for cam_name, cam in self.cameras.items():
+            try:
+                obs[cam_name] = cam.read()
+            except Exception as exc:
+                if cam_name not in self._warned_camera_read:
+                    logger.warning("Camera '%s' read failed: %s", cam_name, exc)
+                    self._warned_camera_read.add(cam_name)
 
         return obs
 

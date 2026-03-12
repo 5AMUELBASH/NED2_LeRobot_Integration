@@ -35,25 +35,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
         ]
     )
 
-    
-    cameras : dict[str, CameraConfig] = field(
-        default_factory=lambda: {
-            "front_cam": OpenCVCameraConfig(
-                index_or_path=6,
-                fps=30,
-                width=640,
-                height=480,
-            ),
-
-            "hand_cam": OpenCVCameraConfig(
-                index_or_path=2,
-                fps=15,
-                width=640,
-                height=480,
-                rotation=Cv2Rotation.ROTATE_180,
-            ),
-        }
-    )
+    cameras : dict[str, CameraConfig] = field(default_factory=dict)       
 
     # Trajectory timing (seconds)
     point_time: float = 0.4     
