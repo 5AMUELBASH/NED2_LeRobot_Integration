@@ -35,7 +35,23 @@ class NED2ROS2FollowerConfig(RobotConfig):
         ]
     )
 
-    cameras : dict[str, CameraConfig] = field(default_factory=dict)       
+    cameras : dict[str, CameraConfig] = field(
+        default_factory=lambda: {
+            "front_cam": OpenCVCameraConfig(
+                index_or_path="/dev/v4l/by-id/usb-BC-250311-ZW_USB_2.0_Camera-video-index0",
+                width=640,
+                height=480,
+                fps=30,
+            ),
+            "hand_cam": OpenCVCameraConfig(
+                index_or_path="/dev/v4l/by-id/usb-H264_USB_Camera_H264_USB_Camera_2020032801-video-index0",
+                width=640,
+                height=480,
+                fps=30,
+                rotation=Cv2Rotation.ROTATE_180,
+            ),
+        }
+    )       
 
     # Trajectory timing (seconds)
     point_time: float = 0.4     
