@@ -16,13 +16,11 @@ from control_msgs.action import FollowJointTrajectory
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
-
-
 from niryo_ned_ros2_interfaces.msg import Tool
 from niryo_ned_ros2_interfaces.srv import ToolCommand, Trigger
 
-from lerobot.robots.robot import Robot
 from lerobot.cameras import make_cameras_from_configs
+from lerobot.robots.robot import Robot
 
 from .config_ned2_ros2_follower import NED2ROS2FollowerConfig
 
@@ -75,6 +73,11 @@ class NED2ROS2Follower(Robot):
         self._gripper_closed = None
         self._warned_missing = set()
 
+        # Non-blocking gripper worker state.
+        self._pending_gripper_open: bool | None = None
+        self._gripper_busy = False
+        self._gripper_timer = None
+
     @property
     def _camera_ft(self) -> dict[str, tuple]:
         cams = self.cameras
@@ -104,7 +107,7 @@ class NED2ROS2Follower(Robot):
         if self.config.gripper_key:
             features[self.config.gripper_key] = float
         return features
-    
+
     @property
     def is_connected(self) -> bool:
         return self._node is not None
@@ -150,12 +153,15 @@ class NED2ROS2Follower(Robot):
         if self.config.update_tool_on_connect:
             self._update_tool()
 
+        self._gripper_timer = self._node.create_timer(
+            self.config.gripper_worker_period_s,
+            self._flush_gripper_command,
+        )
+
         for cam in self.cameras.values():
             cam.connect()
 
         logger.info("%s connected.", self)
-
-
 
     @property
     def is_calibrated(self) -> bool:
@@ -239,6 +245,7 @@ class NED2ROS2Follower(Robot):
         if self.config.gripper_key and self._tool_position is not None:
             obs[self.config.gripper_key] = float(self._tool_position)
 
+
         return obs
 
     def _build_goal(self, joint_names: list[str], positions: list[float]) -> FollowJointTrajectory.Goal:
@@ -314,44 +321,122 @@ class NED2ROS2Follower(Robot):
             logger.error("send_goal_async failed: %s", exc)
 
     def _handle_gripper(self, value: float) -> None:
-        want_open = bool(int(value))
+        want_open = float(value) >= self.config.gripper_toggle_threshold
         desired_closed = not want_open
 
-        if self._gripper_closed is None:
-            self._gripper_closed = desired_closed
-        elif self._gripper_closed == desired_closed:
-            return
+        with self._lock:
+            if self._pending_gripper_open is not None and self._pending_gripper_open == want_open:
+                return
 
-        self._gripper_closed = desired_closed
+            if (
+                self._pending_gripper_open is None
+                and self._gripper_closed is not None
+                and self._gripper_closed == desired_closed
+            ):
+                return
 
+            self._pending_gripper_open = want_open
+
+    def _build_gripper_request(self, opening: bool) -> ToolCommand.Request:
         req = ToolCommand.Request()
-        req.id = int(self.config.tool_id)
-        req.speed = int(self.config.gripper_speed)
-        req.hold_torque = int(self.config.gripper_hold_torque)
-        req.max_torque = int(self.config.gripper_max_torque)
+        req.id = self.config.tool_id
+        req.speed = self.config.gripper_speed
+        req.hold_torque = self.config.gripper_hold_torque
+        req.max_torque = self.config.gripper_max_torque
+        req.position = self.config.gripper_open_pos if opening else self.config.gripper_close_pos
+        return req
 
-        if want_open:
-            req.position = int(self.config.gripper_open_pos)
-            client = self._open_client
-            label = "OPEN"
-        else:
-            req.position = int(self.config.gripper_close_pos)
-            client = self._close_client
-            label = "CLOSE"
+    def _flush_gripper_command(self) -> None:
+        with self._lock:
+            if self._gripper_busy:
+                return
+            if self._pending_gripper_open is None:
+                return
 
-        logger.info("Gripper %s -> tool_id=%s target=%s", label, req.id, req.position)
+            opening = self._pending_gripper_open
+            self._pending_gripper_open = None
+            desired_closed = not opening
+
+            if self._gripper_closed is not None and self._gripper_closed == desired_closed:
+                return
+
+            self._gripper_busy = True
+
+        if self.config.update_tool_each_toggle:
+            try:
+                update_fut = self._update_tool_client.call_async(Trigger.Request())
+                update_fut.add_done_callback(
+                    lambda fut, opening=opening: self._on_update_tool_then_dispatch(fut, opening)
+                )
+                return
+            except Exception as exc:
+                logger.error("update_tool before gripper failed: %s", exc)
+
+        self._dispatch_gripper_command(opening)
+
+    def _on_update_tool_then_dispatch(self, fut, opening: bool) -> None:
         try:
-            client.call_async(req)
+            fut.result()
+        except Exception as exc:
+            logger.error("update_tool callback failed: %s", exc)
+        self._dispatch_gripper_command(opening)
+
+    def _dispatch_gripper_command(self, opening: bool) -> None:
+        req = self._build_gripper_request(opening)
+        client = self._open_client if opening else self._close_client
+        label = "OPEN" if opening else "CLOSE"
+
+        logger.debug("Gripper %s -> tool_id=%s target=%s", label, req.id, req.position)
+        try:
+            fut = client.call_async(req)
+            fut.add_done_callback(
+                lambda fut, opening=opening, label=label: self._on_gripper_command_done(
+                    fut,
+                    opening,
+                    label,
+                )
+            )
         except Exception as exc:
             logger.error("Gripper service call failed: %s", exc)
+            with self._lock:
+                self._gripper_busy = False
+
+    def _on_gripper_command_done(self, fut, opening: bool, label: str) -> None:
+        try:
+            fut.result()
+            with self._lock:
+                self._gripper_closed = not opening
+            logger.debug("Gripper %s done", label)
+        except Exception as exc:
+            logger.error("Gripper %s failed: %s", label, exc)
+        finally:
+            with self._lock:
+                self._gripper_busy = False
 
     def disconnect(self) -> None:
+        if self._gripper_timer is not None:
+            try:
+                self._gripper_timer.cancel()
+            except Exception:
+                pass
+            self._gripper_timer = None
+
+        for cam in self.cameras.values():
+            try:
+                cam.disconnect()
+            except Exception:
+                pass
+
         if self._executor:
             self._executor.shutdown()
         if self._executor_thread:
             self._executor_thread.join(timeout=1.0)
         if self._node:
             self._node.destroy_node()
+
+        with self._lock:
+            self._pending_gripper_open = None
+            self._gripper_busy = False
 
         self._executor = None
         self._executor_thread = None

@@ -35,11 +35,12 @@ class NED2ROS2FollowerConfig(RobotConfig):
         ]
     )
 
+    
     cameras : dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "front_cam": OpenCVCameraConfig(
-                index_or_path=0,
-                fps=15,
+                index_or_path=6,
+                fps=30,
                 width=640,
                 height=480,
             ),
@@ -55,7 +56,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
     )
 
     # Trajectory timing (seconds)
-    point_time: float = 0.3
+    point_time: float = 0.4     
 
     # Gripper services / topics
     update_tool_service: str = "niryo_robot_tools_commander/update_tool"
@@ -67,6 +68,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_key: str = "gripper"
     gripper_open_value: float = 1.0
     gripper_close_value: float = 0.0
+    gripper_toggle_threshold: float = 0.5
 
     tool_id: int = 13
     gripper_open_pos: int = 2900
@@ -76,6 +78,8 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_max_torque: int = 150
 
     update_tool_on_connect: bool = True
+    update_tool_each_toggle: bool = False
+    gripper_worker_period_s: float = 0.01
 
     # Startup behavior
     startup_timeout_s: float = 10.0

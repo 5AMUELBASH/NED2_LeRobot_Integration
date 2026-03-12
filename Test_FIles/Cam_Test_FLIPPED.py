@@ -26,7 +26,7 @@ def main():
 
     while True:
         ret, raw = cap.read()
-        frame = cv2.flip(raw, -1)
+        frame = raw
 
         if not ret or frame is None:
             print("No frame (ret=False or frame=None).")
