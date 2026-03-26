@@ -77,8 +77,6 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_hold_torque: int = 150
     gripper_max_torque: int = 150
 
-    update_tool_on_connect: bool = False
-    #update_tool_each_toggle: bool = False
     gripper_worker_period_s: float = 0.01
 
     # Startup behavior
@@ -86,7 +84,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
     wait_for_joint_states: bool = True
 
     # Advanced: set to True only if this plugin owns the ROS2 context
-    shutdown_rclpy_on_disconnect: bool = False
+    #shutdown_rclpy_on_disconnect: bool = False
 
 
 NED2ROS2FollowerConfigAlias: TypeAlias = NED2ROS2FollowerConfig

@@ -370,24 +370,7 @@ class NED2ROS2Follower(Robot):
 
             self._gripper_busy = True
 
-        #if self.config.update_tool_each_toggle:
-        #    try:
-        #        update_fut = self._update_tool_client.call_async(Trigger.Request())
-        #        update_fut.add_done_callback(
-        #            lambda fut, opening=opening: self._on_update_tool_then_dispatch(fut, opening)
-        #     )
-        #      return
-        #    except Exception as exc:
-        #        logger.error("update_tool before gripper failed: %s", exc)
-
         self._dispatch_gripper_command(opening)
-
-    #def _on_update_tool_then_dispatch(self, fut, opening: bool) -> None:
-    #    try:
-    #        fut.result()
-    #    except Exception as exc:
-    #        logger.error("update_tool callback failed: %s", exc)
-    #    self._dispatch_gripper_command(opening)
 
     def _dispatch_gripper_command(self, opening: bool) -> None:
         req = self._build_gripper_request(opening)
@@ -450,7 +433,7 @@ class NED2ROS2Follower(Robot):
         self._executor_thread = None
         self._node = None
 
-        if self.config.shutdown_rclpy_on_disconnect and rclpy.ok():
-            rclpy.shutdown()
+        #if self.config.shutdown_rclpy_on_disconnect and rclpy.ok():
+        #    rclpy.shutdown()
 
         logger.info("%s disconnected.", self)
