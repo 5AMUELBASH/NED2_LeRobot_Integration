@@ -35,6 +35,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
         ]
     )
 
+    
     cameras : dict[str, CameraConfig] = field(
         default_factory=lambda: {
             "front_cam": OpenCVCameraConfig(
@@ -52,6 +53,7 @@ class NED2ROS2FollowerConfig(RobotConfig):
             ),
         }
     )       
+
 
     # Trajectory timing (seconds)
     point_time: float = 0.4     
@@ -75,8 +77,8 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_hold_torque: int = 150
     gripper_max_torque: int = 150
 
-    update_tool_on_connect: bool = True
-    update_tool_each_toggle: bool = False
+    update_tool_on_connect: bool = False
+    #update_tool_each_toggle: bool = False
     gripper_worker_period_s: float = 0.01
 
     # Startup behavior

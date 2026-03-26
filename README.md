@@ -1,9 +1,15 @@
 # NED2 LeRobot Integration (ROS2)
 
-This workspace contains two LeRobot plugins:
+This workspace contains two LeRobot plugin packages inside one Python
+installation:
 
-- `lerobot_robot_ned2_ros2`: follower-side Robot implementation
-- `lerobot_teleoperator_ned2_ros2`: leader-side Teleoperator implementation
+- `lerobot_robot_ned2_ros2`: follower-side `Robot` implementation
+- `lerobot_teleoperator_ned2_ros2`: leader-side `Teleoperator` implementation
+
+The editable distribution installed from this repo is named
+`lerobot_robot_ned2_ros2` so LeRobot's third-party plugin discovery imports it.
+That import also loads `lerobot_teleoperator_ned2_ros2`, which registers the
+leader plugin from the same root install.
 
 ## Prereqs
 
@@ -14,8 +20,19 @@ This workspace contains two LeRobot plugins:
 ## Install (editable)
 
 ```bash
-pip install -e ./lerobot_robot_ned2_ros2
-pip install -e ./lerobot_teleoperator_ned2_ros2
+pip install -e .
+```
+
+## Layout
+
+```text
+NED2_LeRobot_Integration/
+├── pyproject.toml
+├── src/
+│   ├── lerobot_robot_ned2_ros2/
+│   └── lerobot_teleoperator_ned2_ros2/
+├── Test_FIles/
+└── ned2.urdf
 ```
 
 ## Quick Start
@@ -23,7 +40,11 @@ pip install -e ./lerobot_teleoperator_ned2_ros2
 ```bash
 lerobot-teleoperate \
   --robot.type=ned2_ros2_follower \
-  --teleop.type=ned2_ros2_leader
+  --robot.namespace=/follower \
+  --robot.cameras="{}" \
+  --teleop.type=ned2_ros2_leader \
+  --teleop.namespace=/leader \
+  --display_data=false
 ```
 
-See each package README for configuration details.
+See the config modules in `src/` for full option details.

@@ -2,16 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 
 import logging
-import sys
 import threading
 import time
 
 import rclpy
+from niryo_ned_ros2_interfaces.msg import EEButtonStatus
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.qos import qos_profile_sensor_data
-
 from sensor_msgs.msg import JointState
-from niryo_ned_ros2_interfaces.msg import EEButtonStatus
 
 from lerobot.teleoperators.teleoperator import Teleoperator
 
@@ -38,28 +36,6 @@ def _ensure_rclpy_init() -> None:
         rclpy.init()
 
 
-def _keyboard_thread(toggle_callback, stop_flag: threading.Event) -> None:
-    if not sys.stdin.isatty():
-        logger.warning("stdin is not a TTY; keyboard gripper toggle may not work.")
-    logger.info("[KEYS] SPACE toggles gripper, q quits.")
-
-    while not stop_flag.is_set():
-        try:
-            line = sys.stdin.readline()
-            if line == "":
-                stop_flag.set()
-                break
-            line = line.strip("\n")
-            if line == " " or line.lower() == "t" or line == "":
-                toggle_callback()
-            elif line.lower() == "q":
-                stop_flag.set()
-                break
-        except Exception:
-            stop_flag.set()
-            break
-
-
 class NED2ROS2Leader(Teleoperator):
     config_class = NED2ROS2LeaderConfig
     name = "ned2_ros2_leader"
@@ -76,8 +52,6 @@ class NED2ROS2Leader(Teleoperator):
         self._lock = threading.Lock()
 
         self._gripper_value = self.config.gripper_open_value
-        self._keyboard_thread = None
-        self._stop_flag = threading.Event()
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -114,7 +88,7 @@ class NED2ROS2Leader(Teleoperator):
                 EEButtonStatus, button_topic, self._on_leader_button, qos_profile_sensor_data
             )
             logger.info("Listening for leader button events on: %s", button_topic)
-            logger.info("Single press -> OPEN, Double press -> CLOSE")
+            logger.info("Single press -> TOGGLE gripper")
 
         self._executor = MultiThreadedExecutor(num_threads=2)
         self._executor.add_node(self._node)
@@ -123,12 +97,6 @@ class NED2ROS2Leader(Teleoperator):
 
         if self.config.wait_for_joint_states:
             self._wait_for_joint_states()
-
-        if self.config.enable_keyboard_gripper:
-            self._keyboard_thread = threading.Thread(
-                target=_keyboard_thread, args=(self._toggle_gripper, self._stop_flag), daemon=True
-            )
-            self._keyboard_thread.start()
 
         logger.info("%s connected.", self)
 
@@ -155,21 +123,17 @@ class NED2ROS2Leader(Teleoperator):
         with self._lock:
             self._joint_state = msg
 
-    def _on_leader_button(self, msg: EEButtonStatus) -> None:
-        if msg.action == EEButtonStatus.NO_ACTION:
-            return
-        if msg.action == EEButtonStatus.SINGLE_PUSH_ACTION:
-            self._gripper_value = self.config.gripper_open_value
-            logger.info("Leader button SINGLE press -> OPEN gripper")
-        elif msg.action == EEButtonStatus.DOUBLE_PUSH_ACTION:
-            self._gripper_value = self.config.gripper_close_value
-            logger.info("Leader button DOUBLE press -> CLOSE gripper")
-
     def _toggle_gripper(self) -> None:
         if self._gripper_value == self.config.gripper_open_value:
             self._gripper_value = self.config.gripper_close_value
         else:
             self._gripper_value = self.config.gripper_open_value
+
+    def _on_leader_button(self, msg: EEButtonStatus) -> None:
+        if msg.action != EEButtonStatus.SINGLE_PUSH_ACTION:
+            return
+        self._toggle_gripper()
+        logger.info("Leader button SINGLE press -> TOGGLE gripper")
 
     def get_action(self) -> dict[str, float]:
         with self._lock:
@@ -194,7 +158,6 @@ class NED2ROS2Leader(Teleoperator):
         raise NotImplementedError
 
     def disconnect(self) -> None:
-        self._stop_flag.set()
         if self._executor:
             self._executor.shutdown()
         if self._executor_thread:

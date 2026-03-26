@@ -16,10 +16,10 @@ from control_msgs.action import FollowJointTrajectory
 from sensor_msgs.msg import JointState
 from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
+from lerobot.cameras.utils import make_cameras_from_configs
 from niryo_ned_ros2_interfaces.msg import Tool
 from niryo_ned_ros2_interfaces.srv import ToolCommand, Trigger
 
-from lerobot.cameras import make_cameras_from_configs
 from lerobot.robots.robot import Robot
 
 from .config_ned2_ros2_follower import NED2ROS2FollowerConfig
@@ -79,6 +79,7 @@ class NED2ROS2Follower(Robot):
         self._gripper_busy = False
         self._gripper_timer = None
 
+    
     @property
     def _camera_ft(self) -> dict[str, tuple]:
         return {
@@ -116,7 +117,7 @@ class NED2ROS2Follower(Robot):
         del calibrate
         _ensure_rclpy_init()
 
-        node_name = f"ned2_ros2_follower_{self.id or 'default'}"
+        node_name = f"LeRobot_ROS_Node"
         self._node = rclpy.create_node(node_name)
 
         joint_states_topic = _resolve_topic(self.config.namespace, self.config.joint_states_topic)
@@ -215,7 +216,8 @@ class NED2ROS2Follower(Robot):
     def _on_tool_motor(self, msg: Tool) -> None:
         with self._lock:
             try:
-                self._tool_position = int(msg.position)
+                #self._tool_position = int(msg.position)
+                self._tool_position = 1 if int(msg.position) > 2400 else 0
             except Exception:
                 self._tool_position = None
 
@@ -328,17 +330,16 @@ class NED2ROS2Follower(Robot):
             logger.error("send_goal_async failed: %s", exc)
 
     def _handle_gripper(self, value: float) -> None:
-        want_open = float(value) >= self.config.gripper_toggle_threshold
-        desired_closed = not want_open
+        want_open = True if value == 1 else False
+        want_closed = not want_open
 
         with self._lock:
             if self._pending_gripper_open is not None and self._pending_gripper_open == want_open:
                 return
 
-            if (
-                self._pending_gripper_open is None
+            if (self._pending_gripper_open is None
                 and self._gripper_closed is not None
-                and self._gripper_closed == desired_closed
+                and self._gripper_closed == want_closed
             ):
                 return
 
@@ -354,7 +355,7 @@ class NED2ROS2Follower(Robot):
         return req
 
     def _flush_gripper_command(self) -> None:
-        with self._lock:
+        with self._lock: 
             if self._gripper_busy:
                 return
             if self._pending_gripper_open is None:
@@ -369,24 +370,24 @@ class NED2ROS2Follower(Robot):
 
             self._gripper_busy = True
 
-        if self.config.update_tool_each_toggle:
-            try:
-                update_fut = self._update_tool_client.call_async(Trigger.Request())
-                update_fut.add_done_callback(
-                    lambda fut, opening=opening: self._on_update_tool_then_dispatch(fut, opening)
-                )
-                return
-            except Exception as exc:
-                logger.error("update_tool before gripper failed: %s", exc)
+        #if self.config.update_tool_each_toggle:
+        #    try:
+        #        update_fut = self._update_tool_client.call_async(Trigger.Request())
+        #        update_fut.add_done_callback(
+        #            lambda fut, opening=opening: self._on_update_tool_then_dispatch(fut, opening)
+        #     )
+        #      return
+        #    except Exception as exc:
+        #        logger.error("update_tool before gripper failed: %s", exc)
 
         self._dispatch_gripper_command(opening)
 
-    def _on_update_tool_then_dispatch(self, fut, opening: bool) -> None:
-        try:
-            fut.result()
-        except Exception as exc:
-            logger.error("update_tool callback failed: %s", exc)
-        self._dispatch_gripper_command(opening)
+    #def _on_update_tool_then_dispatch(self, fut, opening: bool) -> None:
+    #    try:
+    #        fut.result()
+    #    except Exception as exc:
+    #        logger.error("update_tool callback failed: %s", exc)
+    #    self._dispatch_gripper_command(opening)
 
     def _dispatch_gripper_command(self, opening: bool) -> None:
         req = self._build_gripper_request(opening)

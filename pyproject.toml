@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lerobot_teleoperator_ned2_ros2"
+name = "lerobot_robot_ned2_ros2"
 version = "0.1.0"
-description = "LeRobot teleoperator plugin for Niryo NED2 over ROS2."
+description = "LeRobot NED2 ROS2 robot and teleoperator plugins."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -17,6 +17,7 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-lerobot_teleoperator_ned2_ros2 = ["*.md"]
+include = [
+  "lerobot_robot_ned2_ros2",
+  "lerobot_teleoperator_ned2_ros2",
+]
