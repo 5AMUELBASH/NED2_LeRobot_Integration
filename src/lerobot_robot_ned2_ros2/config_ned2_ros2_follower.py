@@ -78,6 +78,8 @@ class NED2ROS2FollowerConfig(RobotConfig):
     gripper_max_torque: int = 150
 
     gripper_worker_period_s: float = 0.01
+    update_tool_on_connect: bool = True
+    update_tool_each_toggle: bool = False
 
     # Startup behavior
     startup_timeout_s: float = 10.0

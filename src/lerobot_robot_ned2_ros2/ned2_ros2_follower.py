@@ -79,7 +79,6 @@ class NED2ROS2Follower(Robot):
         self._gripper_busy = False
         self._gripper_timer = None
 
-    
     @property
     def _camera_ft(self) -> dict[str, tuple]:
         return {
@@ -216,7 +215,6 @@ class NED2ROS2Follower(Robot):
     def _on_tool_motor(self, msg: Tool) -> None:
         with self._lock:
             try:
-                #self._tool_position = int(msg.position)
                 self._tool_position = 1 if int(msg.position) > 2400 else 0
             except Exception:
                 self._tool_position = None

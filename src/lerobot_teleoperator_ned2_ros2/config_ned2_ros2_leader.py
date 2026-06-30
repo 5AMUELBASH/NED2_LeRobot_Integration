@@ -41,15 +41,14 @@ class NED2ROS2LeaderConfig(TeleoperatorConfig):
     gripper_open_value: float = 1.0
     gripper_close_value: float = 0.0
 
-    # Gripper control source. The keyboard flag is retained as a no-op so older
-    # CLI/config inputs still parse cleanly after keyboard support removal.
+    # Gripper control source
     enable_button_gripper: bool = True
 
     # Startup behavior
     startup_timeout_s: float = 10.0
     wait_for_joint_states: bool = True
 
-    # Advanced: set to True only if this plugin owns the ROS2 context
+    # Keep ros2 client library active even on disconnect
     shutdown_rclpy_on_disconnect: bool = False
 
 
